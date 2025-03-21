@@ -282,6 +282,40 @@ export const removeFileFromKnowledgeById = async (token: string, id: string, fil
 	return res;
 };
 
+export const removeDirectoryFileFromKnowledgeById = async (token: string, id: string, fileId: string) => {
+	let error = null;
+	const res = await fetch(`${WEBUI_API_BASE_URL}/retrieval/collection/${id}/delete_document`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify({
+			document_id: fileId
+		})
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err.detail;
+
+			console.log(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};
+
 export const resetKnowledgeById = async (token: string, id: string) => {
 	let error = null;
 

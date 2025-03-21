@@ -20,7 +20,7 @@
 		removeFileFromKnowledgeById,
 		resetKnowledgeById,
 		updateFileFromKnowledgeById,
-		updateKnowledgeById
+		updateKnowledgeById, removeDirectoryFileFromKnowledgeById
 	} from '$lib/apis/knowledge';
 
 	import { transcribeAudio } from '$lib/apis/audio';
@@ -29,6 +29,7 @@
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Files from './KnowledgeBase/Files.svelte';
+	import DirectoryFiles from './KnowledgeBase/DirectoryFiles.svelte';
 	import AddFilesPlaceholder from '$lib/components/AddFilesPlaceholder.svelte';
 
 	import AddContentMenu from './KnowledgeBase/AddContentMenu.svelte';
@@ -379,6 +380,60 @@
 		}
 	};
 
+	let directoryFiles = { data: { metadatas: [] } };
+	let selectedDirectoryFile = null;
+	const getUUIDFromURL = () => {
+		const pathParts = window.location.pathname.split('/');
+		return pathParts[pathParts.length - 1];
+	};
+	const fetchCollectionData = async () => {
+		const collectionId = getUUIDFromURL();
+
+		try {
+			const response = await fetch(`${WEBUI_BASE_URL}/api/v1/retrieval/collection/${collectionId}`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+					'authorization': 'Bearer ' + localStorage.getItem('token')
+				}
+			});
+
+			if (!response.ok) throw new Error(`Failed to fetch collection: ${collectionId}`);
+
+			directoryFiles = await response.json();
+			console.log('Collection Data:', directoryFiles);
+		} catch (error) {
+			console.error('Error fetching collection:', error);
+			return null;
+		}
+	};
+
+	fetchCollectionData();
+	const deleteDirectoryFileHandler = async (fileId) => {
+		try {
+			console.log('Starting file deletion process for:', fileId);
+
+			// Remove from knowledge base only
+			const updatedKnowledge = await removeDirectoryFileFromKnowledgeById(localStorage.token, id, fileId);
+
+			console.log('Knowledge base updated:', updatedKnowledge);
+
+			if (updatedKnowledge) {
+				knowledge = updatedKnowledge;
+				toast.success($i18n.t('File removed successfully.'));
+				console.log(fileId, 'selectedDirectoryFile');
+				directoryFiles.data.metadatas = directoryFiles?.data?.metadatas?.filter(
+					file => file?.id !== fileId
+				);
+
+				selectedDirectoryFile = null;
+			}
+		} catch (e) {
+			console.error('Error in deleteFileHandler:', e);
+			toast.error(`${e}`);
+		}
+	};
+
 	const updateFileContentHandler = async () => {
 		const fileId = selectedFile.id;
 		const content = selectedFile.data.content;
@@ -541,32 +596,54 @@
 		let files = [];
 		let errors = [];
 
-		const batchSize = 5; // Process 5 files at a time
+		const batchSize = 5; // Обрабатываем 5 файлов за раз
 		const fileBatches = chunkArray([...selectedFiles], batchSize);
 
 		for (const batch of fileBatches) {
+
+			batch.forEach(file => {
+				file.status = 'uploading'; // Добавляем статус "uploading"
+			});
+
+			// Обрабатываем файлы и добавляем их в массив
 			await Promise.all(batch.map(file => processSingleFile(file, files, errors)));
+
+			// После обработки каждого пакета, обновляем метаданные
+			directoryFiles = { data: { metadatas: [...files] } };
+
+			// Обновляем статус всех файлов на "completed" после обработки
+			batch.forEach(file => {
+				file.status = 'completed';
+			});
 		}
 
 		console.log('Files processed. Sending data...');
 		await sendFiles(files, errors);
 	};
 
-	// Function to process a single file
+	// Функция для обработки одного файла
 	const processSingleFile = async (file, files, errors) => {
+		console.log(file.type, 'file.type');
 		try {
 			if (file.type.startsWith('text')) {
 				const text = await readFileAsText(file);
-				files.push({ 
-					name: file.name, 
-					content: text, 
-					collection_name: id 
+				files.push({
+					name: file.name,
+					content: text,
+					collection_name: id
 				});
-			} else if (file.type.startsWith('image') || file.type === 'application/pdf') {
+			} else if (file.type === 'application/pdf') {
 				const text = await recognizeText(file);
-				files.push({ 
-					name: file.name, 
-					content: text, 
+				files.push({
+					name: file.name,
+					content: text,
+					collection_name: id
+				});
+			} else if (file.type.startsWith('image')) {
+				const text = await recognizeText(file);
+				files.push({
+					name: file.name,
+					content: text,
 					collection_name: id
 				});
 			} else {
@@ -577,7 +654,6 @@
 		}
 	};
 
-	// Async function to read text files
 	const readFileAsText = (file) => {
 		return new Promise((resolve, reject) => {
 			const reader = new FileReader();
@@ -587,20 +663,27 @@
 		});
 	};
 
-	// OCR function for images and PDFs
 	const recognizeText = (file) => {
+		console.log(file, 'file');
 		return new Promise((resolve, reject) => {
-			Tesseract.recognize(URL.createObjectURL(file), 'eng')
-				.then(({ data: { text } }) => resolve(text))
-				.catch(error => reject(error));
+			Tesseract.recognize(
+				URL.createObjectURL(file),
+				'eng',
+				{
+					logger: (m) => console.log(m)
+				}
+			).then(({ data: { text } }) => {
+				resolve(text);
+			}).catch((error) => {
+				reject(error);
+			});
 		});
 	};
 
-	// Function to send files to the server
 	const sendFiles = async (files, errors) => {
 		if (files.length === 0) return;
 
-		const batchSize = 5; // Send files in batches of 5
+		const batchSize = 5;
 		const fileBatches = chunkArray(files, batchSize);
 
 		for (const batch of fileBatches) {
@@ -610,7 +693,6 @@
 		console.log('All files successfully uploaded!');
 	};
 
-	// Function to send a single file to the server
 	const sendFile = async (file, errors) => {
 		try {
 			const response = await fetch(`${WEBUI_BASE_URL}/api/v1/retrieval/process/text`, {
@@ -632,12 +714,14 @@
 		}
 	};
 
-	// Utility function to split array into chunks
-	const chunkArray = (arr, size) => {
-		return Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
-			arr.slice(i * size, i * size + size)
-		);
+	const chunkArray = (array, size) => {
+		const chunks = [];
+		for (let i = 0; i < array.length; i += size) {
+			chunks.push(array.slice(i, i + size));
+		}
+		return chunks;
 	};
+
 </script>
 
 {#if dragged}
@@ -948,7 +1032,6 @@
 								</div>
 							</div>
 						</div>
-
 						{#if filteredItems.length > 0}
 							<div class=" flex overflow-y-auto h-full w-full scrollbar-hidden text-xs">
 								<Files
@@ -959,6 +1042,7 @@
 										selectedFileId = selectedFileId === e.detail ? null : e.detail;
 									}}
 									on:delete={(e) => {
+										console.log(e);
 										console.log(e.detail);
 
 										selectedFileId = null;
@@ -971,6 +1055,24 @@
 								<div>
 									{$i18n.t('No content found')}
 								</div>
+							</div>
+						{/if}
+						{#if directoryFiles}
+							<div class=" flex overflow-y-auto h-full w-full scrollbar-hidden text-xs">
+								<Files
+									files={directoryFiles?.data?.metadatas}
+									on:click={(e) => {
+										console.log(e, 'e')
+										selectedDirectoryFile = selectedDirectoryFile === e.detail ? null : e.detail;
+									}}
+									{selectedDirectoryFile}
+									on:delete={(e) => {
+										console.log(e, 'file');
+
+										let selectedDirectoryFile = null;
+										deleteDirectoryFileHandler(e.detail);
+									}}
+								/>
 							</div>
 						{/if}
 					</div>
