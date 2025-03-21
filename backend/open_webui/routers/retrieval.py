@@ -1977,10 +1977,42 @@ def get_collection_data(
         # Add document content to metadata
         # This ensures frontend can access document content directly from metadata
         metadatas = []
+        
+        # Group documents by hash to combine chunks from the same file
+        documents_by_hash = {}
+        
         for i, metadata in enumerate(result.metadatas[0]):
-            metadata_with_content = metadata.copy()
-            metadata_with_content["id"] = result.ids[0][i]
-            metadata_with_content["document_content"] = result.documents[0][i]
+            doc_hash = metadata.get("hash", "")
+            
+            if doc_hash not in documents_by_hash:
+                documents_by_hash[doc_hash] = {
+                    "ids": [result.ids[0][i]],
+                    "documents": [result.documents[0][i]],
+                    "metadata": metadata.copy()
+                }
+            else:
+                documents_by_hash[doc_hash]["ids"].append(result.ids[0][i])
+                documents_by_hash[doc_hash]["documents"].append(result.documents[0][i])
+        
+        # Create combined metadata entries
+        combined_ids = []
+        combined_documents = []
+        
+        for doc_hash, doc_data in documents_by_hash.items():
+            # Use the first document's id as the combined document id
+            doc_id = doc_data["ids"][0]
+            combined_ids.append(doc_id)
+            
+            # Combine document contents
+            combined_content = "\n".join(doc_data["documents"])
+            combined_documents.append(combined_content)
+            
+            # Create metadata with combined content
+            metadata_with_content = doc_data["metadata"]
+            metadata_with_content["id"] = doc_id
+            metadata_with_content["document_content"] = combined_content
+            # Add array of original chunk ids for reference
+            metadata_with_content["chunk_ids"] = doc_data["ids"]
             metadatas.append(metadata_with_content)
 
         # Form successful response
@@ -1988,8 +2020,8 @@ def get_collection_data(
         return {
             "status": True,
             "data": {
-                "ids": result.ids[0],
-                "documents": result.documents[0],
+                "ids": combined_ids,
+                "documents": combined_documents,
                 "metadatas": metadatas
             }
         }
@@ -2019,89 +2051,110 @@ def delete_document_from_collection(
     form_data: DeleteDocumentForm,
     user=Depends(get_verified_user),
 ):
-    """
-    Deletes a specific document from a vector collection by its ID.
-
-    This endpoint allows removing a single document from the specified vector database collection.
-    It performs basic validation, checks collection existence, and handles the deletion process.
-
-    Args:
-        collection_name (str): Unique identifier of the collection from which to delete the document.
-        form_data (DeleteDocumentForm): Form containing document_id to delete.
-        user (UserModel): Authenticated user (ensured through Depends).
-
-    Returns:
-        dict: Dictionary with operation status information:
-            {
-                "status": bool,  # Operation execution status (true if successful)
-                "message": str,  # Success message
-                "deleted_id": str  # ID of the deleted document
-            }
-
-    Raises:
-        HTTPException: Occurs in the following cases:
-            - 400: Invalid collection name or document ID (empty validation)
-            - 404: Collection not found
-            - 500: Internal server error or deletion failure
-    
-    Note:
-        This function performs a direct deletion without checking for document existence
-        first. If the document doesn't exist, the operation will still return success.
-        The vector database client handles the deletion gracefully.
-    """
     try:
-        # Basic parameter validation
-        # Check if collection name is not empty
         if not collection_name:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Collection name cannot be empty"
             )
 
-        # Check if document ID is not empty
         if not form_data.document_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Document ID cannot be empty"
             )
 
-        # Collection existence check
-        # Verify the collection exists before attempting to delete from it
         if not VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Collection '{collection_name}' not found"
             )
 
-        # Direct document deletion by ID
-        # No prior existence check is performed to optimize the operation
+        log.info(f"Deleting document {form_data.document_id} from collection {collection_name}")
+
         try:
-            VECTOR_DB_CLIENT.delete(
-                collection_name=collection_name,
-                ids=[form_data.document_id]
+            all_docs = VECTOR_DB_CLIENT.get(
+                collection_name=collection_name
             )
 
-            # Return success response with details
+            if not all_docs or len(all_docs.ids[0]) == 0:
+                log.warning(f"No documents found in collection {collection_name}")
+                return {
+                    "status": True,
+                    "message": "No documents found for deletion",
+                    "deleted_ids": []
+                }
+
+            target_hash = None
+
+            for i, doc_id in enumerate(all_docs.ids[0]):
+                metadata = all_docs.metadatas[0][i]
+
+                if doc_id == form_data.document_id and isinstance(metadata, dict) and "hash" in metadata:
+                    target_hash = metadata["hash"]
+                    log.info(f"Found hash {target_hash} for document {form_data.document_id}")
+                    break
+
+                if isinstance(metadata, dict) and "chunk_ids" in metadata and isinstance(metadata["chunk_ids"], list):
+                    if form_data.document_id in metadata["chunk_ids"] and "hash" in metadata:
+                        target_hash = metadata["hash"]
+                        log.info(f"Found hash {target_hash} for document {form_data.document_id} in chunk_ids")
+                        break
+
+            if not target_hash:
+                log.warning(f"Hash not found for document {form_data.document_id}")
+                VECTOR_DB_CLIENT.delete(
+                    collection_name=collection_name,
+                    ids=[form_data.document_id]
+                )
+                return {
+                    "status": True,
+                    "message": f"Only document {form_data.document_id} was deleted, hash not found",
+                    "deleted_ids": [form_data.document_id]
+                }
+
+            ids_to_delete = []
+
+            for i, doc_id in enumerate(all_docs.ids[0]):
+                metadata = all_docs.metadatas[0][i]
+                if isinstance(metadata, dict) and "hash" in metadata and metadata["hash"] == target_hash:
+                    ids_to_delete.append(doc_id)
+
+            if not ids_to_delete:
+                log.warning(f"No documents found with hash {target_hash}")
+                return {
+                    "status": True,
+                    "message": "No documents found for deletion",
+                    "deleted_ids": []
+                }
+
+            log.info(f"Deleting {len(ids_to_delete)} documents with hash {target_hash}")
+
+            VECTOR_DB_CLIENT.delete(
+                collection_name=collection_name,
+                ids=ids_to_delete
+            )
+
+            log.info(f"Successfully deleted {len(ids_to_delete)} documents")
+
             return {
                 "status": True,
-                "message": "Document successfully deleted",
-                "deleted_id": form_data.document_id
+                "message": f"Document and all related chunks successfully deleted ({len(ids_to_delete)} documents)",
+                "deleted_ids": ids_to_delete
             }
+
         except Exception as e:
-            # Log and handle specific deletion errors
-            log.error(f"Error deleting document: {e}")
+            log.error(f"Collection processing error: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to delete document: {str(e)}"
+                detail=f"Error while deleting documents: {str(e)}"
             )
 
     except HTTPException:
-        # Re-raise HTTP exceptions without additional processing
         raise
 
     except Exception as e:
-        # Handle unexpected errors with generic message
-        log.exception(f"Unexpected error while deleting document: {e}")
+        log.exception(f"Unexpected error during document deletion: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error. Please try again later."
