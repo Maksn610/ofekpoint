@@ -1979,6 +1979,7 @@ def get_collection_data(
         metadatas = []
         for i, metadata in enumerate(result.metadatas[0]):
             metadata_with_content = metadata.copy()
+            metadata_with_content["id"] = result.ids[0][i]
             metadata_with_content["document_content"] = result.documents[0][i]
             metadatas.append(metadata_with_content)
 
