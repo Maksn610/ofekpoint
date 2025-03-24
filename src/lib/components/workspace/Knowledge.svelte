@@ -3,10 +3,12 @@
 
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
+
 	dayjs.extend(relativeTime);
 
 	import { toast } from 'svelte-sonner';
 	import { onMount, getContext } from 'svelte';
+
 	const i18n = getContext('i18n');
 
 	import { WEBUI_NAME, knowledge } from '$lib/stores';
@@ -47,8 +49,8 @@
 	$: if (fuse) {
 		filteredItems = query
 			? fuse.search(query).map((e) => {
-					return e.item;
-				})
+				return e.item;
+			})
 			: knowledgeBases;
 	}
 
@@ -90,7 +92,7 @@
 				{$i18n.t('Knowledge')}
 				<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
 				<span class="text-lg font-medium text-gray-500 dark:text-gray-300"
-					>{filteredItems.length}</span
+				>{filteredItems.length}</span
 				>
 			</div>
 		</div>
