@@ -3,13 +3,16 @@
 	import { toast } from 'svelte-sonner';
 	import { v4 as uuidv4 } from 'uuid';
 
-	import { onMount, getContext, onDestroy } from 'svelte';
+	import { onMount, getContext, onDestroy, tick } from 'svelte';
 
 	const i18n = getContext('i18n');
 	const pdfjsLib = window['pdfjs-dist/build/pdf'];
+	import { franc } from 'franc-min';
+	import * as XLSX from 'xlsx';
+	import mammoth from 'mammoth';
 
-
-	pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.5.141/pdf.worker.min.js';
+	pdfjsLib.GlobalWorkerOptions.workerSrc =
+		'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.5.141/pdf.worker.min.js';
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -23,7 +26,8 @@
 		removeFileFromKnowledgeById,
 		resetKnowledgeById,
 		updateFileFromKnowledgeById,
-		updateKnowledgeById, removeDirectoryFileFromKnowledgeById
+		updateKnowledgeById,
+		removeDirectoryFileFromKnowledgeById
 	} from '$lib/apis/knowledge';
 
 	import { blobToFile } from '$lib/utils';
@@ -90,14 +94,13 @@
 
 	$: {
 		filteredItems = query
-			? fuseKnowledge?.search(query).map((e) => e.item) ?? []
+			? (fuseKnowledge?.search(query).map((e) => e.item) ?? [])
 			: (knowledge?.files ?? []);
 
 		filteredDirectoryItems = query
-			? fuseDirectory?.search(query).map((e) => e.item) ?? []
+			? (fuseDirectory?.search(query).map((e) => e.item) ?? [])
 			: (directoryFiles?.data?.metadatas ?? []);
 	}
-
 
 	let selectedFile = null;
 	let selectedFileId = null;
@@ -396,13 +399,16 @@
 		const collectionId = getUUIDFromURL();
 
 		try {
-			const response = await fetch(`${WEBUI_BASE_URL}/api/v1/retrieval/collection/${collectionId}`, {
-				method: 'GET',
-				headers: {
-					'Content-Type': 'application/json',
-					'authorization': 'Bearer ' + localStorage.getItem('token')
+			const response = await fetch(
+				`${WEBUI_BASE_URL}/api/v1/retrieval/collection/${collectionId}`,
+				{
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json',
+						authorization: 'Bearer ' + localStorage.getItem('token')
+					}
 				}
-			});
+			);
 
 			if (!response.ok) throw new Error(`Failed to fetch collection: ${collectionId}`);
 
@@ -416,13 +422,16 @@
 	fetchCollectionData();
 	const deleteDirectoryFileHandler = async (fileId) => {
 		try {
-
-			const updatedKnowledge = await removeDirectoryFileFromKnowledgeById(localStorage.token, id, fileId);
+			const updatedKnowledge = await removeDirectoryFileFromKnowledgeById(
+				localStorage.token,
+				id,
+				fileId
+			);
 
 			if (updatedKnowledge) {
 				toast.success($i18n.t('File removed successfully.'));
 				directoryFiles.data.metadatas = directoryFiles?.data?.metadatas?.filter(
-					file => file?.id !== fileId
+					(file) => file?.id !== fileId
 				);
 			}
 		} catch (e) {
@@ -586,46 +595,64 @@
 		dropZone?.removeEventListener('dragleave', onDragLeave);
 	});
 
-
 	const processFiles = async (selectedFiles) => {
 		let files = [];
 		let errors = [];
+		let totalFiles = selectedFiles.length;
+		let uploadedFiles = 0;
 
+		const updateProgress = () => {
+			const percentage = (uploadedFiles / totalFiles) * 100;
+			toast.info(`Upload Progress: ${uploadedFiles}/${totalFiles} (${percentage.toFixed(2)}%)`);
+			console.log(uploadedFiles);
+		};
 		const batchSize = 5;
 		const fileBatches = chunkArray([...selectedFiles], batchSize);
 
 		for (const batch of fileBatches) {
-			await Promise.all(batch.map(file => processSingleFile(file, files, errors)));
+			await Promise.all(
+				batch.map(async (file) => {
+					const processedFile = await processSingleFile(file, files, errors);
+					console.log(files, 'files');
+					console.log(file, 'filefilefile');
+					console.log(processedFile, 'processedFile');
+					uploadedFiles++;
+					updateProgress();
+				})
+			);
 		}
 		await sendFiles(files, errors);
 	};
 
 	const processSingleFile = async (file, files, errors) => {
 		try {
+			let processedFile = null;
 			if (file.type.startsWith('text')) {
 				const text = await readFileAsText(file);
-				files.push({
-					name: file.name,
-					content: text,
-					collection_name: id
-				});
+				processedFile = { name: file.name, content: text, collection_name: id };
 			} else if (file.type === 'application/pdf') {
 				const text = await recognizePdfText(file);
-				files.push({
-					name: file.name,
-					content: text,
-					collection_name: id
-				});
+				processedFile = { name: file.name, content: text, collection_name: id };
 			} else if (file.type.startsWith('image')) {
 				const text = await recognizeText(file);
-				files.push({
-					name: file.name,
-					content: text,
-					collection_name: id
-				});
+				processedFile = { name: file.name, content: text, collection_name: id };
+			} else if (
+				file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+			) {
+				const text = await extractExcelText(file);
+				processedFile = { name: file.name, content: text, collection_name: id };
+			} else if (
+				file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+			) {
+				const text = await extractWordText(file);
+				processedFile = { name: file.name, content: text, collection_name: id };
 			} else {
 				errors.push(`Unsupported file type: ${file.name}`);
+				return;
 			}
+
+			files.push(processedFile);
+			filteredDirectoryItems = [...filteredDirectoryItems, processedFile];
 		} catch (error) {
 			errors.push(`Error processing file ${file.name}: ${error.message}`);
 		}
@@ -642,24 +669,71 @@
 
 	const recognizeText = (file) => {
 		return new Promise((resolve, reject) => {
-			Tesseract.recognize(
-				URL.createObjectURL(file),
-				'eng'
-			).then(({ data: { text } }) => {
-				resolve(text);
-			}).catch((error) => {
-				reject(error);
-			});
+			Tesseract.recognize(URL.createObjectURL(file), 'eng+heb')
+				.then(({ data: { text } }) => {
+					resolve(text);
+				})
+				.catch((error) => {
+					reject(error);
+				});
+		});
+	};
+
+	const extractWordText = (file) => {
+		console.log(file, 'dsadas');
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = async (e) => {
+				try {
+					const arrayBuffer = e.target.result;
+					const { value } = await mammoth.extractRawText({ arrayBuffer });
+					resolve(value.trim());
+				} catch (error) {
+					reject(new Error(`Ошибка извлечения текста из Word: ${error.message}`));
+				}
+			};
+
+			reader.onerror = () => reject(new Error(`Ошибка чтения файла ${file.name}`));
+			reader.readAsArrayBuffer(file);
+		});
+	};
+
+	const extractExcelText = (file) => {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const data = new Uint8Array(e.target.result);
+					const workbook = XLSX.read(data, { type: 'array' });
+
+					let textContent = '';
+					workbook.SheetNames.forEach((sheetName) => {
+						const sheet = workbook.Sheets[sheetName];
+						const sheetData = XLSX.utils.sheet_to_csv(sheet, {
+							blankrows: false,
+							skipHidden: true
+						});
+
+						textContent += sheetData + '\n';
+					});
+
+					resolve(textContent.trim());
+				} catch (error) {
+					reject(new Error(`Ошибка чтения Excel: ${error.message}`));
+				}
+			};
+			reader.onerror = () => reject(new Error(`Ошибка чтения файла ${file.name}`));
+			reader.readAsArrayBuffer(file);
 		});
 	};
 
 	const recognizePdfText = async (file) => {
 		const reader = new FileReader();
+
 		const text = await new Promise((resolve, reject) => {
 			reader.onload = async (e) => {
 				try {
-					const pdfData = new Uint8Array(e?.target?.result);
-
+					const pdfData = new Uint8Array(e.target.result);
 					const pdf = await pdfjsLib.getDocument(pdfData).promise;
 
 					let textContent = '';
@@ -668,20 +742,39 @@
 						const page = await pdf.getPage(pageNum);
 						const content = await page.getTextContent();
 
-						content.items.forEach(item => {
-							textContent += item.str + ' ';
-						});
+						if (content.items.length > 0) {
+							content.items.forEach((item) => {
+								textContent += item.str + ' ';
+							});
+						} else {
+							const scale = 2;
+							const viewport = page.getViewport({ scale });
+
+							const canvas = document.createElement('canvas');
+							const context = canvas.getContext('2d');
+							context.filter = 'contrast(200%)';
+							canvas.width = viewport.width;
+							canvas.height = viewport.height;
+
+							await page.render({ canvasContext: context, viewport }).promise;
+							const imageData = canvas.toDataURL('image/png');
+
+							const { data } = await Tesseract.recognize(imageData, 'eng+heb', {
+								tessedit_pageseg_mode: Tesseract.PSM.AUTO
+							});
+							textContent += data.text + ' ';
+						}
 					}
 
 					resolve(textContent);
 				} catch (err) {
-					console.error('Error parsing PDF:', err);
+					console.error('Ошибка обработки PDF:', err);
 					reject(err);
 				}
 			};
 
 			reader.onerror = (error) => {
-				console.error('Error reading file:', error);
+				console.error('Ошибка чтения файла:', error);
 				reject(error);
 			};
 
@@ -691,7 +784,6 @@
 		return text;
 	};
 
-
 	const sendFiles = async (files, errors) => {
 		if (files.length === 0) return;
 
@@ -699,8 +791,7 @@
 		const fileBatches = chunkArray(files, batchSize);
 
 		for (const batch of fileBatches) {
-			await Promise.all(batch.map(file => sendFile(file, errors)));
-			directoryFiles = { data: { metadatas: [...files], status: 'uploading' } };
+			await Promise.all(batch.map((file) => sendFile(file, errors)));
 		}
 	};
 
@@ -710,7 +801,7 @@
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'authorization': 'Bearer ' + localStorage.getItem('token')
+					authorization: 'Bearer ' + localStorage.getItem('token')
 				},
 				body: JSON.stringify({
 					name: file.name,
@@ -718,7 +809,7 @@
 					collection_name: file.collection_name
 				})
 			});
-			fetchCollectionData();
+			await fetchCollectionData();
 			if (!response.ok) throw new Error(`Failed to upload: ${file.name}`);
 		} catch (error) {
 			errors.push(error.message);
@@ -733,6 +824,10 @@
 		return chunks;
 	};
 
+	const handleFileChange = async (e) => {
+		await processFiles(e.target.files);
+		e.target.value = '';
+	};
 </script>
 
 {#if dragged}
@@ -803,7 +898,7 @@
 <input
 	hidden
 	id="directory-input"
-	on:change={async (e) => processFiles(e.target.files)}
+	on:change={handleFileChange}
 	type="file"
 	webkitdirectory
 />
@@ -1057,7 +1152,7 @@
 									}}
 								/>
 							</div>
-						{:else if (!filteredDirectoryItems.length && !filteredItems.length)}
+						{:else if !filteredDirectoryItems.length && !filteredItems.length}
 							<div class="my-3 flex flex-col justify-center text-center text-gray-500 text-xs">
 								<div>
 									{$i18n.t('No content found')}

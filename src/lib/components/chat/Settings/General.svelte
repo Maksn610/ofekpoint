@@ -2,6 +2,7 @@
 	import { toast } from 'svelte-sonner';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
 	import { getLanguages, changeLanguage } from '$lib/i18n';
+
 	const dispatch = createEventDispatcher();
 
 	import { models, settings, theme, user } from '$lib/stores';
@@ -169,16 +170,16 @@
 <div class="flex flex-col h-full justify-between text-sm">
 	<div class="  overflow-y-scroll max-h-[28rem] lg:max-h-full">
 		<div class="">
-			<div class=" mb-1 text-sm font-medium">{$i18n.t('WebUI Settings')}</div>
+			<div class=" mb-1 text-sm font-medium">{$i18n.t('Chatty Settings')}</div>
 
 			<div class="flex w-full justify-between">
 				<div class=" self-center text-xs font-medium">{$i18n.t('Theme')}</div>
 				<div class="flex items-center relative">
 					<select
-						class=" dark:bg-gray-900 w-fit pr-8 rounded-sm py-2 px-2 text-xs bg-transparent outline-hidden text-right"
 						bind:value={selectedTheme}
-						placeholder="Select a theme"
+						class=" dark:bg-gray-900 w-fit pr-8 rounded-sm py-2 px-2 text-xs bg-transparent outline-hidden text-right"
 						on:change={() => themeChangeHandler(selectedTheme)}
+						placeholder="Select a theme"
 					>
 						<option value="system">⚙️ {$i18n.t('System')}</option>
 						<option value="dark">🌑 {$i18n.t('Dark')}</option>
@@ -195,12 +196,12 @@
 				<div class=" self-center text-xs font-medium">{$i18n.t('Language')}</div>
 				<div class="flex items-center relative">
 					<select
-						class=" dark:bg-gray-900 w-fit pr-8 rounded-sm py-2 px-2 text-xs bg-transparent outline-hidden text-right"
 						bind:value={lang}
-						placeholder="Select a language"
+						class=" dark:bg-gray-900 w-fit pr-8 rounded-sm py-2 px-2 text-xs bg-transparent outline-hidden text-right"
 						on:change={(e) => {
 							changeLanguage(lang);
 						}}
+						placeholder="Select a language"
 					>
 						{#each languages as language}
 							<option value={language['code']}>{language['title']}</option>

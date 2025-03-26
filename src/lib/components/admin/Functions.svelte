@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import fileSaver from 'file-saver';
+
 	const { saveAs } = fileSaver;
 
 	import { WEBUI_NAME, config, functions, models, settings } from '$lib/stores';
@@ -211,8 +212,8 @@
 				<Search className="size-3.5" />
 			</div>
 			<input
-				class=" w-full text-sm pr-4 py-1 rounded-r-xl outline-hidden bg-transparent"
 				bind:value={query}
+				class=" w-full text-sm pr-4 py-1 rounded-r-xl outline-hidden bg-transparent"
 				placeholder={$i18n.t('Search Functions')}
 			/>
 		</div>
@@ -394,16 +395,16 @@
 <div class=" flex justify-end w-full mb-2">
 	<div class="flex space-x-2">
 		<input
-			id="documents-import-input"
-			bind:this={functionsImportInputElement}
-			bind:files={importFiles}
-			type="file"
 			accept=".json"
+			bind:files={importFiles}
+			bind:this={functionsImportInputElement}
 			hidden
+			id="documents-import-input"
 			on:change={() => {
 				console.log(importFiles);
 				showConfirm = true;
 			}}
+			type="file"
 		/>
 
 		<button
@@ -416,15 +417,15 @@
 
 			<div class=" self-center">
 				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
 					class="w-4 h-4"
+					fill="currentColor"
+					viewBox="0 0 16 16"
+					xmlns="http://www.w3.org/2000/svg"
 				>
 					<path
-						fill-rule="evenodd"
-						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 9.5a.75.75 0 0 1-.75-.75V8.06l-.72.72a.75.75 0 0 1-1.06-1.06l2-2a.75.75 0 0 1 1.06 0l2 2a.75.75 0 1 1-1.06 1.06l-.72-.72v2.69a.75.75 0 0 1-.75.75Z"
 						clip-rule="evenodd"
+						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 9.5a.75.75 0 0 1-.75-.75V8.06l-.72.72a.75.75 0 0 1-1.06-1.06l2-2a.75.75 0 0 1 1.06 0l2 2a.75.75 0 1 1-1.06 1.06l-.72-.72v2.69a.75.75 0 0 1-.75.75Z"
+						fill-rule="evenodd"
 					/>
 				</svg>
 			</div>
@@ -450,15 +451,15 @@
 
 			<div class=" self-center">
 				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
 					class="w-4 h-4"
+					fill="currentColor"
+					viewBox="0 0 16 16"
+					xmlns="http://www.w3.org/2000/svg"
 				>
 					<path
-						fill-rule="evenodd"
-						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 3.5a.75.75 0 0 1 .75.75v2.69l.72-.72a.75.75 0 1 1 1.06 1.06l-2 2a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 0 1 1.06-1.06l.72.72V6.25A.75.75 0 0 1 8 5.5Z"
 						clip-rule="evenodd"
+						d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm4 3.5a.75.75 0 0 1 .75.75v2.69l.72-.72a.75.75 0 1 1 1.06 1.06l-2 2a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 0 1 1.06-1.06l.72.72V6.25A.75.75 0 0 1 8 5.5Z"
+						fill-rule="evenodd"
 					/>
 				</svg>
 			</div>
@@ -468,9 +469,6 @@
 
 {#if $config?.features.enable_community_sharing}
 	<div class=" my-16">
-		<div class=" text-xl font-medium mb-1 line-clamp-1">
-			{$i18n.t('Made by Open WebUI Community')}
-		</div>
 
 		<a
 			class=" flex cursor-pointer items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-850 w-full mb-2 px-3.5 py-1.5 rounded-xl transition"
@@ -495,10 +493,10 @@
 
 <DeleteConfirmDialog
 	bind:show={showDeleteConfirm}
-	title={$i18n.t('Delete function?')}
 	on:confirm={() => {
 		deleteHandler(selectedFunction);
 	}}
+	title={$i18n.t('Delete function?')}
 >
 	<div class=" text-sm text-gray-500">
 		{$i18n.t('This will delete')} <span class="  font-semibold">{selectedFunction.name}</span>.
@@ -508,7 +506,6 @@
 <ManifestModal bind:show={showManifestModal} manifest={selectedFunction?.meta?.manifest ?? {}} />
 <ValvesModal
 	bind:show={showValvesModal}
-	type="function"
 	id={selectedFunction?.id ?? null}
 	on:save={async () => {
 		await tick();
@@ -519,6 +516,7 @@
 			)
 		);
 	}}
+	type="function"
 />
 
 <ConfirmDialog

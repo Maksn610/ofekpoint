@@ -5,10 +5,12 @@
 	import Sortable from 'sortablejs';
 
 	import fileSaver from 'file-saver';
+
 	const { saveAs } = fileSaver;
 
 	import { onMount, getContext, tick } from 'svelte';
 	import { goto } from '$app/navigation';
+
 	const i18n = getContext('i18n');
 
 	import { WEBUI_NAME, config, mobile, models as _models, settings, user } from '$lib/stores';
@@ -217,7 +219,7 @@
 				{$i18n.t('Models')}
 				<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
 				<span class="text-lg font-medium text-gray-500 dark:text-gray-300"
-					>{filteredModels.length}</span
+				>{filteredModels.length}</span
 				>
 			</div>
 		</div>
@@ -323,7 +325,7 @@
 								</button>
 							</Tooltip>
 						{:else}
-							{#if $user?.role === 'admin' || model.user_id === $user?.id || model.access_control.write.group_ids.some( (wg) => group_ids.includes(wg) )}
+							{#if $user?.role === 'admin' || model.user_id === $user?.id || model.access_control.write.group_ids.some((wg) => group_ids.includes(wg))}
 								<a
 									class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
 									type="button"
@@ -500,9 +502,6 @@
 
 	{#if $config?.features.enable_community_sharing}
 		<div class=" my-16">
-			<div class=" text-xl font-medium mb-1 line-clamp-1">
-				{$i18n.t('Made by Open WebUI Community')}
-			</div>
 
 			<a
 				class=" flex cursor-pointer items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-850 w-full mb-2 px-3.5 py-1.5 rounded-xl transition"
