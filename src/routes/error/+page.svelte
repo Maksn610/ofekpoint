@@ -26,9 +26,6 @@
 					</div>
 
 					<div class=" mt-4 text-center text-sm w-full">
-						{$i18n.t(
-							"Oops! You're using an unsupported method (frontend only). Please serve the WebUI from the backend."
-						)}
 
 						<br class=" " />
 						<br class=" " />

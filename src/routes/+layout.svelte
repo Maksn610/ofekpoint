@@ -227,7 +227,7 @@
 				if (done) {
 					if ($isLastActiveTab) {
 						if ($settings?.notificationEnabled ?? false) {
-							new Notification(`${title} | Open WebUI`, {
+							new Notification(`${title} | Chatty`, {
 								body: content,
 								icon: `${WEBUI_BASE_URL}/static/favicon.png`
 							});
@@ -567,7 +567,7 @@
 
 <svelte:head>
 	<title>{$WEBUI_NAME}</title>
-	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
+	<link crossorigin="anonymous" href="{WEBUI_BASE_URL}/static/favicon.png" rel="icon" />
 
 	<!-- rosepine themes have been disabled as it's not up to date with our latest version. -->
 	<!-- feel free to make a PR to fix if anyone wants to see it return -->
@@ -590,6 +590,8 @@
 {/if}
 
 <Toaster
+	position="top-right"
+	richColors
 	theme={$theme.includes('dark')
 		? 'dark'
 		: $theme === 'system'
@@ -597,6 +599,4 @@
 				? 'dark'
 				: 'light'
 			: 'light'}
-	richColors
-	position="top-right"
 />

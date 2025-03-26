@@ -601,11 +601,17 @@
 		let totalFiles = selectedFiles.length;
 		let uploadedFiles = 0;
 
+		const toastId = toast.loading(`Uploading files: 0/${totalFiles} (0%)`, { duration: Infinity });
+
 		const updateProgress = () => {
-			const percentage = (uploadedFiles / totalFiles) * 100;
-			toast.info(`Upload Progress: ${uploadedFiles}/${totalFiles} (${percentage.toFixed(2)}%)`);
-			console.log(uploadedFiles);
+			const percentage = ((uploadedFiles / totalFiles) * 100).toFixed(2);
+
+			toast.info(`Uploading files: ${uploadedFiles}/${totalFiles} (${percentage}%)`, {
+				id: toastId,
+				duration: Infinity
+			});
 		};
+
 		const batchSize = 5;
 		const fileBatches = chunkArray([...selectedFiles], batchSize);
 
@@ -613,20 +619,26 @@
 			await Promise.all(
 				batch.map(async (file) => {
 					const processedFile = await processSingleFile(file, files, errors);
-					console.log(files, 'files');
-					console.log(file, 'filefilefile');
-					console.log(processedFile, 'processedFile');
+					if (processedFile) {
+						await sendFile(processedFile, errors);
+					}
 					uploadedFiles++;
 					updateProgress();
 				})
 			);
 		}
-		await sendFiles(files, errors);
+
+		toast.success(`Upload complete! ${totalFiles}/${totalFiles} files uploaded`, {
+			id: toastId,
+			duration: 3000
+		});
 	};
+
 
 	const processSingleFile = async (file, files, errors) => {
 		try {
 			let processedFile = null;
+
 			if (file.type.startsWith('text')) {
 				const text = await readFileAsText(file);
 				processedFile = { name: file.name, content: text, collection_name: id };
@@ -648,13 +660,16 @@
 				processedFile = { name: file.name, content: text, collection_name: id };
 			} else {
 				errors.push(`Unsupported file type: ${file.name}`);
-				return;
+				return null;
 			}
 
 			files.push(processedFile);
 			filteredDirectoryItems = [...filteredDirectoryItems, processedFile];
+
+			return processedFile;
 		} catch (error) {
 			errors.push(`Error processing file ${file.name}: ${error.message}`);
+			return null;
 		}
 	};
 
@@ -895,13 +910,7 @@
 	type="file"
 />
 
-<input
-	hidden
-	id="directory-input"
-	on:change={handleFileChange}
-	type="file"
-	webkitdirectory
-/>
+<input hidden id="directory-input" on:change={handleFileChange} type="file" webkitdirectory />
 
 <div class="flex flex-col w-full translate-y-1" id="collection-container">
 	{#if id && knowledge}

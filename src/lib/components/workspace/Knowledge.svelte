@@ -65,7 +65,7 @@
 			toast.success($i18n.t('Knowledge deleted successfully.'));
 		}
 	};
-
+	
 	onMount(async () => {
 		knowledgeBases = await getKnowledgeBaseList(localStorage.token);
 		loaded = true;
