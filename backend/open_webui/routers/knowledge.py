@@ -51,6 +51,28 @@ async def get_knowledge(user=Depends(get_verified_user)):
     knowledge_with_files = []
     for knowledge_base in knowledge_bases:
         files = []
+        file_count = 0
+        
+        # Check if collection exists and get document count
+        collection_name = knowledge_base.id
+        if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
+            try:
+                # Get document count from collection data
+                collection_data = VECTOR_DB_CLIENT.get(collection_name=collection_name)
+                if collection_data:
+                    # Group documents by hash to count unique files
+                    documents_by_hash = {}
+                    for i, metadata in enumerate(collection_data.metadatas[0]):
+                        doc_hash = metadata.get("hash", "")
+                        if doc_hash not in documents_by_hash:
+                            documents_by_hash[doc_hash] = 1
+                    
+                    # Set file count as number of unique hashes
+                    file_count = len(documents_by_hash)
+            except Exception as e:
+                log.warning(f"Error getting document count for collection {collection_name}: {e}")
+                # Continue processing even if we can't get the count
+        
         if knowledge_base.data:
             files = Files.get_file_metadatas_by_ids(
                 knowledge_base.data.get("file_ids", [])
@@ -76,9 +98,17 @@ async def get_knowledge(user=Depends(get_verified_user)):
 
                     files = Files.get_file_metadatas_by_ids(file_ids)
 
+        # Add file_count to metadata if it doesn't exist
+        meta = knowledge_base.meta or {}
+        meta["file_count"] = file_count
+        
+        # Create response with updated metadata
+        knowledge_response = knowledge_base.model_copy()
+        knowledge_response.meta = meta
+        
         knowledge_with_files.append(
             KnowledgeUserResponse(
-                **knowledge_base.model_dump(),
+                **knowledge_response.model_dump(),
                 files=files,
             )
         )
@@ -99,6 +129,28 @@ async def get_knowledge_list(user=Depends(get_verified_user)):
     knowledge_with_files = []
     for knowledge_base in knowledge_bases:
         files = []
+        file_count = 0
+        
+        # Check if collection exists and get document count
+        collection_name = knowledge_base.id
+        if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
+            try:
+                # Get document count from collection data
+                collection_data = VECTOR_DB_CLIENT.get(collection_name=collection_name)
+                if collection_data:
+                    # Group documents by hash to count unique files
+                    documents_by_hash = {}
+                    for i, metadata in enumerate(collection_data.metadatas[0]):
+                        doc_hash = metadata.get("hash", "")
+                        if doc_hash not in documents_by_hash:
+                            documents_by_hash[doc_hash] = 1
+                    
+                    # Set file count as number of unique hashes
+                    file_count = len(documents_by_hash)
+            except Exception as e:
+                log.warning(f"Error getting document count for collection {collection_name}: {e}")
+                # Continue processing even if we can't get the count
+        
         if knowledge_base.data:
             files = Files.get_file_metadatas_by_ids(
                 knowledge_base.data.get("file_ids", [])
@@ -124,9 +176,17 @@ async def get_knowledge_list(user=Depends(get_verified_user)):
 
                     files = Files.get_file_metadatas_by_ids(file_ids)
 
+        # Add file_count to metadata if it doesn't exist
+        meta = knowledge_base.meta or {}
+        meta["file_count"] = file_count
+        
+        # Create response with updated metadata
+        knowledge_response = knowledge_base.model_copy()
+        knowledge_response.meta = meta
+        
         knowledge_with_files.append(
             KnowledgeUserResponse(
-                **knowledge_base.model_dump(),
+                **knowledge_response.model_dump(),
                 files=files,
             )
         )
