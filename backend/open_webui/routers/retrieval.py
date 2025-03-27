@@ -1903,7 +1903,8 @@ def get_collection_data(
                 "data": {
                     "ids": List[str],  # List of unique document identifiers
                     "documents": List[str],  # List of document text contents
-                    "metadatas": List[dict]  # List of document metadata
+                    "metadatas": List[dict],  # List of document metadata
+                    "file_count": int  # Total number of unique files in collection
                 }
             }
 
@@ -1952,7 +1953,8 @@ def get_collection_data(
                 "data": {
                     "ids": [],
                     "documents": [],
-                    "metadatas": []
+                    "metadatas": [],
+                    "file_count": 0
                 }
             }
 
@@ -2016,13 +2018,14 @@ def get_collection_data(
             metadatas.append(metadata_with_content)
 
         # Form successful response
-        # Return data in standardized format
+        # Return data in standardized format with file count
         return {
             "status": True,
             "data": {
                 "ids": combined_ids,
                 "documents": combined_documents,
-                "metadatas": metadatas
+                "metadatas": metadatas,
+                "file_count": len(documents_by_hash)  # Count of unique files based on hash
             }
         }
 
