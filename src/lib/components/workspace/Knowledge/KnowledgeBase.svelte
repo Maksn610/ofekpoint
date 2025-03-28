@@ -621,9 +621,9 @@
 					const processedFile = await processSingleFile(file, files, errors);
 					if (processedFile) {
 						await sendFile(processedFile, errors);
+						uploadedFiles++;
+						updateProgress();
 					}
-					uploadedFiles++;
-					updateProgress();
 				})
 			);
 		}
@@ -824,7 +824,9 @@
 					collection_name: file.collection_name
 				})
 			});
-			await fetchCollectionData();
+			setTimeout(async () => {
+				await fetchCollectionData();
+			}, 1000);
 			if (!response.ok) throw new Error(`Failed to upload: ${file.name}`);
 		} catch (error) {
 			errors.push(error.message);
