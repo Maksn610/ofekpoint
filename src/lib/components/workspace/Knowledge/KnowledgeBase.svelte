@@ -1148,28 +1148,6 @@
 								</div>
 							</div>
 						</div>
-						{#if filteredItems.length > 0}
-							<div class=" flex overflow-y-auto h-full w-full scrollbar-hidden text-xs">
-								<Files
-									small
-									files={filteredItems}
-									{selectedFileId}
-									on:click={(e) => {
-										selectedFileId = selectedFileId === e.detail ? null : e.detail;
-									}}
-									on:delete={(e) => {
-										selectedFileId = null;
-										deleteFileHandler(e.detail);
-									}}
-								/>
-							</div>
-						{:else if !filteredDirectoryItems.length && !filteredItems.length}
-							<div class="my-3 flex flex-col justify-center text-center text-gray-500 text-xs">
-								<div>
-									{$i18n.t('No content found')}
-								</div>
-							</div>
-						{/if}
 						{#if filteredDirectoryItems.length > 0}
 							<div class=" flex overflow-y-auto h-full w-full scrollbar-hidden text-xs">
 								<Files
@@ -1183,6 +1161,12 @@
 										deleteDirectoryFileHandler(e.detail);
 									}}
 								/>
+							</div>
+						{:else if !filteredDirectoryItems.length}
+							<div class="my-3 flex flex-col justify-center text-center text-gray-500 text-xs">
+								<div>
+									{$i18n.t('No content found')}
+								</div>
 							</div>
 						{/if}
 					</div>
