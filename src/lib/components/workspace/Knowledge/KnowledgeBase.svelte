@@ -368,7 +368,9 @@
 		);
 
 		if (updatedKnowledge) {
-			knowledge = updatedKnowledge;
+			setTimeout(() => {
+				fetchCollectionData();
+			}, 2000);
 			toast.success($i18n.t('File added successfully.'));
 		} else {
 			toast.error($i18n.t('Failed to add file.'));
@@ -826,7 +828,7 @@
 			});
 			setTimeout(async () => {
 				await fetchCollectionData();
-			}, 1000);
+			}, 2000);
 			if (!response.ok) throw new Error(`Failed to upload: ${file.name}`);
 		} catch (error) {
 			errors.push(error.message);
