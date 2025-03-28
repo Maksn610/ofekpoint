@@ -65,7 +65,7 @@
 			toast.success($i18n.t('Knowledge deleted successfully.'));
 		}
 	};
-	
+
 	onMount(async () => {
 		knowledgeBases = await getKnowledgeBaseList(localStorage.token);
 		loaded = true;
@@ -165,7 +165,7 @@
 						</div>
 
 						<div class="text-xs text-gray-500 mt-1">
-							{item.files ? item.files.length : 0} Documents
+							{item.files ? item.meta.file_count : 0} Documents
 						</div>
 
 						<div class="mt-3 flex justify-between">
